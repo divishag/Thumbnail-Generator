@@ -1,52 +1,47 @@
 const API_BASE_URL = "/api";
 
-export async function uploadHeadshot(file){
+export async function uploadHeadshot(file) {
     const formData = new FormData();
     formData.append("file", file);
 
-    const res = await fetch(`${API_BASE_URL}/upload_headshot`, {
+    const res = await fetch(`${API_BASE_URL}/upload-headshot`, {
         method: "POST",
-        body: form
+        body: formData,
     });
+
     if (!res.ok) {
         throw new Error("Failed to upload headshot");
     }
-    return res.json();  
-}
 
-export async function createjob({prompt,numThumbnails,headshotUrl}){
-    const res = await fetch(`${API_BASE_URL}/jobs`, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body:  JSON.stringify({
-            prompt,
-            num_thumbnails: numThumbnails,
-            headshot_url: headshotUrl
-        })
-    });
-    if (!res.ok) {
-        throw new Error("Failed to create job");
-    }
     return res.json();
 }
 
-export async function subscribeToJob(jobId, {onThumbnailReady, onThumbnailFailed, onJobComplete,onError}){
-    const es = new EventSource(`${API_BASE_URL}/jobs/${jobId}/stream`);
-    es.addEventListener("thumbnail_ready", (event) => {
-        onThumbnailReady(JSON.parse(event.data));
+export async function createJob({ prompt, numThumbnails, headShotUrl }) {
+    const res = await fetch(`${API_BASE_URL}/jobs`, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+            prompt,
+            num_thumbnails: numThumbnails,
+            head_shot_url: headShotUrl,
+        }),
     });
-    es.addEventListener("thumbnail_failed", (event) => {
-        onThumbnailFailed(JSON.parse(event.data));
-    });
-    es.addEventListener("job_completed", (event) => {
-        onJobComplete(JSON.parse(event.data));
-        es.close();
-    });
-    es.addEventListener("error", (event) => {
-        onError(event);
-        es.close();
-    });
-    return es;  
+
+    if (!res.ok) {
+        throw new Error("Failed to create job");
+    }
+
+    return res.json();
+}
+
+export async function getJob(jobId) {
+    const res = await fetch(`${API_BASE_URL}/jobs/${jobId}`);
+
+    if (!res.ok) {
+        throw new Error("Failed to fetch job status");
+    }
+
+    return res.json();
 }

@@ -1,122 +1,135 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useState } from "react";
+import { createJob, getJob, uploadHeadshot } from "./api";
+import "./App.css";
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [file, setFile] = useState(null);
+  const [prompt, setPrompt] = useState("");
+  const [numThumbnails, setNumThumbnails] = useState(1);
+  const [statusMessage, setStatusMessage] = useState("");
+  const [thumbnails, setThumbnails] = useState([]);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  async function handleGenerate() {
+    if (!file) {
+      setErrorMessage("Please upload a headshot first.");
+      return;
+    }
+
+    if (!prompt.trim()) {
+      setErrorMessage("Please enter a prompt.");
+      return;
+    }
+
+    setErrorMessage("");
+    setThumbnails([]);
+    setIsGenerating(true);
+
+    try {
+      // 1) Upload headshot
+      setStatusMessage("Uploading headshot...");
+      const uploadResult = await uploadHeadshot(file);
+
+      // 2) Create generation job
+      setStatusMessage("Creating job...");
+      const jobResult = await createJob({
+        prompt: prompt.trim(),
+        numThumbnails,
+        headShotUrl: uploadResult.url,
+      });
+
+      // 3) Poll job status until completed or failed
+      setStatusMessage("Generating thumbnails...");
+      while (true) {
+        const job = await getJob(jobResult.job_id);
+        setThumbnails(job.thumbnails || []);
+
+        if (job.status === "completed") {
+          setStatusMessage("Generation completed.");
+          break;
+        }
+
+        if (job.status === "failed") {
+          throw new Error("Thumbnail generation failed.");
+        }
+
+        await wait(1800);
+      }
+    } catch (error) {
+      setStatusMessage("");
+      setErrorMessage(error.message || "Something went wrong.");
+    } finally {
+      setIsGenerating(false);
+    }
+  }
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
+    <main className="app">
+      <h1>AI Thumbnail Generator</h1>
+
+      <div className="form-group">
+        <label htmlFor="headshot">Upload headshot</label>
+        <input
+          id="headshot"
+          type="file"
+          accept="image/*"
+          onChange={(event) => {
+            const selectedFile = event.target.files?.[0] || null;
+            setFile(selectedFile);
+          }}
+        />
+      </div>
+
+      <div className="form-group">
+        <label htmlFor="prompt">Prompt</label>
+        <textarea
+          id="prompt"
+          rows="4"
+          placeholder="Describe your thumbnail..."
+          value={prompt}
+          onChange={(event) => setPrompt(event.target.value)}
+        />
+      </div>
+
+      <div className="form-group">
+        <label htmlFor="count">Number of thumbnails</label>
+        <select
+          id="count"
+          value={numThumbnails}
+          onChange={(event) => setNumThumbnails(Number(event.target.value))}
         >
-          Count is {count}
-        </button>
+          <option value={1}>1</option>
+          <option value={2}>2</option>
+          <option value={3}>3</option>
+        </select>
+      </div>
+
+      <button type="button" onClick={handleGenerate} disabled={isGenerating}>
+        {isGenerating ? "Generating..." : "Generate Thumbnails"}
+      </button>
+
+      {statusMessage && <p className="status">{statusMessage}</p>}
+      {errorMessage && <p className="error">{errorMessage}</p>}
+
+      <section className="results">
+        {thumbnails.map((thumb) => (
+          // 4) Display results as simple cards
+          <article key={thumb.id} className="card">
+            <h3>{thumb.style_name.replaceAll("_", " ")}</h3>
+            <p>Status: {thumb.status}</p>
+            {thumb.imagekit_url ? (
+              <img src={thumb.imagekit_url} alt={thumb.style_name} />
+            ) : (
+              <div className="image-placeholder">Image not ready yet</div>
+            )}
+          </article>
+        ))}
       </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+    </main>
+  );
 }
 
-export default App
+export default App;

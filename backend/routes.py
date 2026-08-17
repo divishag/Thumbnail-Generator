@@ -31,7 +31,7 @@ class CreateJobResponse(BaseModel):
 class ThumbnailResponse(BaseModel):
     id: str
     style_name: str
-    imagekit_url: str
+    imagekit_url: str | None
     status: str
     error_message: str | None
     variants: dict | None
